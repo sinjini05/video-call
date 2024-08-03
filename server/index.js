@@ -1,29 +1,38 @@
-const {Server} = require("socket.io");
+const { Server } = require("socket.io");
 
-const io = new Server(8000,{
-    //cross origin site policy --> frontend and 
-    //backend running on diff servers so chrome blocking it for us
-    cors: true,
+const io = new Server(8000, {
+  cors: true,
 });
 
-//mapping from email to id
 const emailToSocketIdMap = new Map();
-const socketidtoEmailMap = new Map();
+const socketidToEmailMap = new Map();
 
-io.on("connection",(socket) => {
-    console.log(`Socket Connected`, socket.id);
-    //user req
-    socket.on("room:join", (data) =>{
-        //will get these info from the user's data provided
-        const { email,room } = data
-        emailToSocketIdMap.set(email,socket.id);
-        socketidtoEmailMap.set(socket.id,email);
-        //existing user will get this event
-        io.to(room).emit("user:joined",{email, id: socket.id});
-        //next will join the other user
-        socket.join(room);
-        //granting join req for user(socket.id) and sending data
-        io.to(socket.id).emit("room:join", data);
-        console.log(data);
-    });
+io.on("connection", (socket) => {
+  console.log(`Socket Connected`, socket.id);
+  socket.on("room:join", (data) => {
+    const { email, room } = data;
+    emailToSocketIdMap.set(email, socket.id);
+    socketidToEmailMap.set(socket.id, email);
+    io.to(room).emit("user:joined", { email, id: socket.id });
+    socket.join(room);
+    io.to(socket.id).emit("room:join", data);
+  });
+
+  socket.on("user:call", ({ to, offer }) => {
+    io.to(to).emit("incomming:call", { from: socket.id, offer });
+  });
+
+  socket.on("call:accepted", ({ to, ans }) => {
+    io.to(to).emit("call:accepted", { from: socket.id, ans });
+  });
+
+  socket.on("peer:nego:needed", ({ to, offer }) => {
+    console.log("peer:nego:needed", offer);
+    io.to(to).emit("peer:nego:needed", { from: socket.id, offer });
+  });
+
+  socket.on("peer:nego:done", ({ to, ans }) => {
+    console.log("peer:nego:done", ans);
+    io.to(to).emit("peer:nego:final", { from: socket.id, ans });
+  });
 });
