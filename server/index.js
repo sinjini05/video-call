@@ -1,11 +1,23 @@
 const { Server } = require("socket.io");
 
+const rateLimit = require("express-rate-limit");
+
 const io = new Server(8000, {
   cors: true,
 });
 
 const emailToSocketIdMap = new Map();
 const socketidToEmailMap = new Map();
+
+const limiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: 100, // Limit each socket to 100 requests per window
+  message: "Too many requests from this socket, please try again later."
+});
+
+io.use((socket, next) => {
+  limiter(socket.request, {}, next);
+});
 
 io.on("connection", (socket) => {
   console.log(`Socket Connected`, socket.id);
